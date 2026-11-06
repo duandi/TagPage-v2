@@ -1,5 +1,5 @@
 # Tag Page v2
-
+https://duandi.github.io/TagPage-v2/
 基于原 `TagPage` 项目重写的**零依赖本地书签导航页**。保留原有数据格式与使用习惯，同时修复已知 bug 并补齐体验细节。
 
 ## 相比原版的改动
