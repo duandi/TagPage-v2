@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="dark">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="本地书签导航页：增删改、标签筛选、搜索、拖拽排序、导入导出、深浅主题，数据全部保存在浏览器本地。" />
+  <title>Tag Page · 本地书签导航</title>
+  <link rel="icon" type="image/png" href="favicon.png" sizes="16x16" />
+  <link rel="stylesheet" href="css/style.css?v=2.5.2" />
+</head>
+
+<body>
+  <!-- 工具栏：标签筛选 + 搜索 + 操作 -->
+  <nav class="toolbar" aria-label="标签筛选与操作">
+    <div class="chips" id="tagbar"></div>
+
+    <div class="search-wrap">
+      <svg class="search-icon" viewBox="0 0 24 24" aria-hidden="true">
+        <circle cx="11" cy="11" r="7"></circle>
+        <line x1="16.5" y1="16.5" x2="21" y2="21"></line>
+      </svg>
+      <input id="search" type="search" placeholder="搜索标题或网址…" autocomplete="off" spellcheck="false" />
+      <button id="search-clear" class="search-clear" title="清空搜索" hidden>✕</button>
+    </div>
+
+    <div class="actions">
+      <button class="status-chip" id="status-chip" data-state="none" title="存储状态，点击查看诊断信息">0 条 · 未保存</button>
+      <button class="icon-btn" id="btn-import" title="导入 JSON">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21V10m0 0 4 4m-4-4-4 4" /><path d="M4 7V5a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v2" /></svg>
+      </button>
+      <button class="icon-btn" id="btn-export" title="导出 JSON">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v11m0 0 4-4m-4 4-4-4" /><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" /></svg>
+      </button>
+      <button class="icon-btn" id="btn-theme" title="切换明暗主题">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4.5" /><path d="M12 2v2.5M12 19.5V22M2 12h2.5M19.5 12H22M4.9 4.9l1.8 1.8M17.3 17.3l1.8 1.8M19.1 4.9l-1.8 1.8M6.7 17.3l-1.8 1.8" /></svg>
+      </button>
+    </div>
+    <input type="file" id="file-input" accept=".json,application/json" hidden />
+  </nav>
+
+  <!-- 存储受限提示（仅当浏览器禁止本地存储时出现） -->
+  <div class="storage-warn" id="storage-warn" hidden>
+    <span id="storage-warn-text">
+      当前环境禁止网页写入本地存储（常见于预览面板 / 内嵌 webview），导入的数据刷新后会丢失。
+      请直接双击 <b>index.html</b> 在浏览器中打开使用。
+    </span>
+    <button class="storage-warn-close" id="storage-warn-close" title="关闭">✕</button>
+  </div>
+
+  <!-- 卡片墙 -->
+  <div class="stage">
+    <main class="grid" id="grid"></main>
+
+    <!-- 空状态 -->
+    <div class="empty" id="empty" hidden></div>
+  </div>
+
+  <!-- 悬浮添加 -->
+  <button class="fab" id="btn-add" title="添加网址 (N)">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
+  </button>
+
+  <!-- 添加 / 编辑弹窗 -->
+  <div class="modal-mask" id="modal" hidden>
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+      <div class="modal-head">
+        <h2 id="modal-title">添加网址</h2>
+        <button class="icon-btn ghost-icon" id="modal-close" title="关闭">✕</button>
+      </div>
+
+      <form id="form" class="modal-body" novalidate>
+        <label class="field">
+          <span class="field-label">标题 <em>*</em></span>
+          <input type="text" id="f-title" placeholder="例如：GitHub" autocomplete="off" />
+        </label>
+
+        <label class="field">
+          <span class="field-label">网址 <em>*</em></span>
+          <input type="text" id="f-url" placeholder="https://example.com" autocomplete="off" spellcheck="false" />
+        </label>
+
+        <div class="field">
+          <span class="field-label">图标类型</span>
+          <div class="segmented">
+            <label><input type="radio" name="type" value="url" checked /><span>图片</span></label>
+            <label><input type="radio" name="type" value="svg" /><span>SVG</span></label>
+            <label><input type="radio" name="type" value="text" /><span>文字</span></label>
+          </div>
+        </div>
+
+        <div class="field" data-group="url">
+          <span class="field-label">图标地址</span>
+          <input type="text" id="f-logo" placeholder="图片 URL 或 data:image/... 的 base64" autocomplete="off" spellcheck="false" />
+        </div>
+
+        <div class="field" data-group="svg">
+          <span class="field-label">SVG 代码</span>
+          <textarea id="f-svg" rows="4" placeholder="&lt;svg …&gt;…&lt;/svg&gt;" spellcheck="false"></textarea>
+        </div>
+
+        <div class="field" data-group="svg">
+          <span class="field-label">SVG 颜色</span>
+          <input type="text" id="f-svgcolor" placeholder="可选，如 #4c8dff" autocomplete="off" />
+        </div>
+
+        <div class="field" data-group="text">
+          <span class="field-label">图标文字</span>
+          <input type="text" id="f-logotext" placeholder="如 GH / 知" maxlength="8" autocomplete="off" />
+        </div>
+
+        <div class="field" data-group="text">
+          <span class="field-label">文字颜色</span>
+          <input type="text" id="f-logotextcolor" placeholder="可选，如 #e6edf3" autocomplete="off" />
+        </div>
+
+        <label class="field">
+          <span class="field-label">卡片背景色</span>
+          <input type="text" id="f-bgcolor" placeholder="可选，留空使用默认卡片色" autocomplete="off" />
+        </label>
+
+        <label class="field">
+          <span class="field-label">标签</span>
+          <select id="f-tag">
+            <option value="">未分类</option>
+            <option value="1">Default</option>
+            <option value="2">Tools</option>
+            <option value="3">Material</option>
+            <option value="4">Google</option>
+            <option value="5">Steam</option>
+          </select>
+        </label>
+      </form>
+
+      <div class="modal-foot">
+        <button type="button" class="btn ghost" id="modal-reset">清空</button>
+        <span class="spacer"></span>
+        <button type="button" class="btn ghost" id="modal-cancel">取消</button>
+        <button type="submit" class="btn primary" id="modal-submit" form="form">添加</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 确认弹窗 -->
+  <div class="modal-mask" id="confirm" hidden>
+    <div class="mini-modal" role="alertdialog" aria-modal="true">
+      <h3 id="confirm-msg">确认操作？</h3>
+      <p id="confirm-sub"></p>
+      <div class="mini-actions">
+        <button class="btn ghost" id="confirm-cancel">取消</button>
+        <button class="btn danger" id="confirm-ok">确定</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 存储诊断 -->
+  <div class="modal-mask" id="diag" hidden>
+    <div class="mini-modal diag-modal" role="dialog" aria-modal="true" aria-labelledby="diag-title">
+      <h3 id="diag-title">存储诊断</h3>
+      <pre id="diag-body"></pre>
+      <div class="mini-actions">
+        <button class="btn ghost" id="diag-copy">复制</button>
+        <button class="btn primary" id="diag-close">关闭</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 右键 / 长按菜单 -->
+  <div class="ctx-menu" id="ctx-menu" role="menu" hidden></div>
+
+  <!-- 提示 -->
+  <div class="toasts" id="toasts" aria-live="polite"></div>
+
+  <script src="js/store.js?v=2.5.2"></script>
+  <script src="js/app.js?v=2.5.2"></script>
+</body>
+
+</html>
